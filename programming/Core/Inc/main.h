@@ -75,12 +75,18 @@ void Error_Handler(void);
 #define LED_3_GPIO_Port GPIOA
 #define TASTER_3_Pin GPIO_PIN_0
 #define TASTER_3_GPIO_Port GPIOB
+#define OUT_7SEG_SFTCLK_Pin GPIO_PIN_8
+#define OUT_7SEG_SFTCLK_GPIO_Port GPIOA
+#define OUT_7SEG_SDI_Pin GPIO_PIN_9
+#define OUT_7SEG_SDI_GPIO_Port GPIOA
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
 #define TCK_GPIO_Port GPIOA
-#define SWO_Pin GPIO_PIN_3
-#define SWO_GPIO_Port GPIOB
+#define OUT_Buzzer_Pin GPIO_PIN_3
+#define OUT_Buzzer_GPIO_Port GPIOB
+#define OUT_7SEGLCHCLK_Pin GPIO_PIN_5
+#define OUT_7SEGLCHCLK_GPIO_Port GPIOB
 #define LED_4_Pin GPIO_PIN_6
 #define LED_4_GPIO_Port GPIOB
 

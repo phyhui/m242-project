@@ -1,0 +1,2 @@
+../Core/Src/Taster_Treiber.c:35:6:Taster_Treiber_Init_Task	16	static
+../Core/Src/Taster_Treiber.c:50:6:Taster_Get	16	static

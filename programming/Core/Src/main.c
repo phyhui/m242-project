@@ -23,6 +23,10 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "LED_Treiber.h"
+#include "Taster_Treiber.h"
+#include "Seg_Driver.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -41,6 +45,8 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+TIM_HandleTypeDef htim3;
+
 UART_HandleTypeDef huart2;
 
 /* Definitions for defaultTask */
@@ -57,6 +63,18 @@ const osThreadAttr_t tasterTask_attributes = {
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityLow,
 };
+/* Definitions for displayTask */
+osThreadId_t displayTaskHandle;
+const osThreadAttr_t displayTask_attributes = {
+  .name = "displayTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityLow,
+};
+/* Definitions for stopwatchTimer */
+osTimerId_t stopwatchTimerHandle;
+const osTimerAttr_t stopwatchTimer_attributes = {
+  .name = "stopwatchTimer"
+};
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -65,8 +83,11 @@ const osThreadAttr_t tasterTask_attributes = {
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_TIM3_Init(void);
 void StartDefaultTask(void *argument);
 void Taster_Treiber_Task(void *argument);
+void StartDisplayTask(void *argument);
+void stopwatchCallback(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -106,6 +127,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -120,6 +142,10 @@ int main(void)
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
   /* USER CODE END RTOS_SEMAPHORES */
+
+  /* Create the timer(s) */
+  /* creation of stopwatchTimer */
+  stopwatchTimerHandle = osTimerNew(stopwatchCallback, osTimerPeriodic, NULL, &stopwatchTimer_attributes);
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
@@ -136,6 +162,9 @@ int main(void)
   /* creation of tasterTask */
   tasterTaskHandle = osThreadNew(Taster_Treiber_Task, NULL, &tasterTask_attributes);
 
+  /* creation of displayTask */
+  displayTaskHandle = osThreadNew(StartDisplayTask, NULL, &displayTask_attributes);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -151,6 +180,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -196,12 +226,58 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART2;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART2|RCC_PERIPHCLK_TIM34;
   PeriphClkInit.Usart2ClockSelection = RCC_USART2CLKSOURCE_PCLK1;
+  PeriphClkInit.Tim34ClockSelection = RCC_TIM34CLK_HCLK;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 36000-1;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 250;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
 }
 
 /**
@@ -257,10 +333,11 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, LED_1_Pin|LED_2_Pin|LED_3_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, LED_1_Pin|LED_2_Pin|LED_3_Pin|OUT_7SEG_SFTCLK_Pin
+                          |OUT_7SEG_SDI_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LED_4_GPIO_Port, LED_4_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, OUT_Buzzer_Pin|OUT_7SEGLCHCLK_Pin|LED_4_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -274,8 +351,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LED_1_Pin LED_2_Pin LED_3_Pin */
-  GPIO_InitStruct.Pin = LED_1_Pin|LED_2_Pin|LED_3_Pin;
+  /*Configure GPIO pins : LED_1_Pin LED_2_Pin LED_3_Pin OUT_7SEG_SFTCLK_Pin
+                           OUT_7SEG_SDI_Pin */
+  GPIO_InitStruct.Pin = LED_1_Pin|LED_2_Pin|LED_3_Pin|OUT_7SEG_SFTCLK_Pin
+                          |OUT_7SEG_SDI_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -287,12 +366,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(TASTER_3_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : LED_4_Pin */
-  GPIO_InitStruct.Pin = LED_4_Pin;
+  /*Configure GPIO pins : OUT_Buzzer_Pin OUT_7SEGLCHCLK_Pin LED_4_Pin */
+  GPIO_InitStruct.Pin = OUT_Buzzer_Pin|OUT_7SEGLCHCLK_Pin|LED_4_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LED_4_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
@@ -311,11 +390,36 @@ static void MX_GPIO_Init(void)
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void *argument)
 {
+
+	  HAL_GPIO_TogglePin(OUT_Buzzer_GPIO_Port, OUT_Buzzer_Pin);
   /* USER CODE BEGIN 5 */
+	int timer = 0;
+	int resetBeep = 0;
   /* Infinite loop */
-  for(;;)
+  while(1)
   {
-    osDelay(1);
+	  if (Taster_Get(TASTER_3)) {
+		  while(1){
+			  if((timer + 400) % 1000 == 0){
+				  timer += 400;
+				  HAL_GPIO_TogglePin(OUT_Buzzer_GPIO_Port, OUT_Buzzer_Pin);
+				  resetBeep = 1;
+			  }
+			SEG_Driver_Write(timer, SEG_Driver_DP_2 | SEG_Driver_DP_4,0);
+			osDelay(100);
+
+			if(resetBeep == 1){
+			 HAL_GPIO_TogglePin(OUT_Buzzer_GPIO_Port, OUT_Buzzer_Pin);
+			 resetBeep = 0;
+			}
+			timer++;
+		  }
+	  }
+	  if (Taster_Get(TASTER_2)) {
+
+	  }
+
+    osDelay(100);
   }
   /* USER CODE END 5 */
 }
@@ -331,11 +435,34 @@ void Taster_Treiber_Task(void *argument)
 {
   /* USER CODE BEGIN Taster_Treiber_Task */
   /* Infinite loop */
-  for(;;)
-  {
-    osDelay(1);
-  }
+	Taster_Treiber_Init_Task(argument);
   /* USER CODE END Taster_Treiber_Task */
+}
+
+/* USER CODE BEGIN Header_StartDisplayTask */
+/**
+* @brief Function implementing the displayTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_StartDisplayTask */
+void StartDisplayTask(void *argument)
+{
+  /* USER CODE BEGIN StartDisplayTask */
+  /* Infinite loop */
+	while(true){
+	      SEG_Driver_Task_5ms();
+	      osDelay(5);
+	  }
+  /* USER CODE END StartDisplayTask */
+}
+
+/* stopwatchCallback function */
+void stopwatchCallback(void *argument)
+{
+  /* USER CODE BEGIN stopwatchCallback */
+
+  /* USER CODE END stopwatchCallback */
 }
 
 /**

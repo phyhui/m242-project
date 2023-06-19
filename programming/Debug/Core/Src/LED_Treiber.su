@@ -1,0 +1,2 @@
+../Core/Src/LED_Treiber.c:32:6:LED_Toggle	16	static
+../Core/Src/LED_Treiber.c:54:6:LED_Set	16	static

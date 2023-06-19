@@ -1,0 +1,4 @@
+Seg_Driver.c:28:6:WritePort	3
+Seg_Driver.c:46:6:WriteValue	16
+Seg_Driver.c:101:6:SEG_Driver_Write	1
+Seg_Driver.c:109:6:SEG_Driver_Task_5ms	1
