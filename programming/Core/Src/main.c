@@ -87,7 +87,7 @@ static void MX_TIM3_Init(void);
 void StartDefaultTask(void *argument);
 void Taster_Treiber_Task(void *argument);
 void StartDisplayTask(void *argument);
-void stopwatchCallback(void *argument);
+//void stopwatchCallback(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -145,7 +145,7 @@ int main(void)
 
   /* Create the timer(s) */
   /* creation of stopwatchTimer */
-  stopwatchTimerHandle = osTimerNew(stopwatchCallback, osTimerPeriodic, NULL, &stopwatchTimer_attributes);
+  //stopwatchTimerHandle = osTimerNew(stopwatchCallback, osTimerPeriodic, NULL, &stopwatchTimer_attributes);
 
   /* USER CODE BEGIN RTOS_TIMERS */
   /* start timers, add new ones, ... */
@@ -378,7 +378,14 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+int stopuhr = 0;
+int timerStatus = 10;
+int timer = 0;
+int meanTime = 0;
+int mode = 0;
+int stopuhrIsRuning = 0;
+int timerIsRunning = 0;
+int taster3Counter = 0;
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -390,39 +397,145 @@ static void MX_GPIO_Init(void)
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void *argument)
 {
-
-	  HAL_GPIO_TogglePin(OUT_Buzzer_GPIO_Port, OUT_Buzzer_Pin);
   /* USER CODE BEGIN 5 */
-	int timer = 0;
-	int resetBeep = 0;
+  HAL_GPIO_TogglePin(OUT_Buzzer_GPIO_Port, OUT_Buzzer_Pin);
+
+  LED_Set(LED_1, 0);
+  LED_Set(LED_2, 0);
+  LED_Set(LED_3, 0);
+  LED_Set(LED_4, 1);
   /* Infinite loop */
   while(1)
   {
-	  if (Taster_Get(TASTER_3)) {
-		  while(1){
-			  if((timer + 400) % 1000 == 0){
-				  timer += 400;
-				  HAL_GPIO_TogglePin(OUT_Buzzer_GPIO_Port, OUT_Buzzer_Pin);
-				  resetBeep = 1;
+	  while(mode == 0){
+		  LED_Set(LED_2, 0);
+		  LED_Set(LED_1, 1);
+		  if(Taster_Get(TASTER_3)){
+			  switchMode();
+			  if(mode != 1){
+				  stopuhr = 0;
+				  SEG_Driver_Write(stopuhr, SEG_Driver_DP_2 | SEG_Driver_DP_4,0);
 			  }
-			SEG_Driver_Write(timer, SEG_Driver_DP_2 | SEG_Driver_DP_4,0);
-			osDelay(100);
-
-			if(resetBeep == 1){
-			 HAL_GPIO_TogglePin(OUT_Buzzer_GPIO_Port, OUT_Buzzer_Pin);
-			 resetBeep = 0;
-			}
-			timer++;
 		  }
+		  if(Taster_Get(TASTER_1)){
+			  beep(100);
+			  stopuhrIsRuning = 1;
+			  LED_Set(LED_3, 1);
+		  }
+		  while(stopuhrIsRuning == 1 && mode == 0){
+			  stopuhrRunning();
+		  }
+		  osDelay(100);
+		  countDownTimer();
 	  }
-	  if (Taster_Get(TASTER_2)) {
-
+	  while(mode == 1){
+		  LED_Set(LED_1, 0);
+		  LED_Set(LED_2, 1);
+		  while(timerStatus != 1990){
+			  if(Taster_Get(TASTER_1)){
+				  timer = timer - timerStatus;
+			  }
+			  if(Taster_Get(TASTER_2)){
+				  timer = timer + timerStatus;
+			  }
+			  if(Taster_Get(TASTER_3)){
+				  timerStatus = timerStatus + 990;
+			  }
+			  SEG_Driver_Write(timer, SEG_Driver_DP_2 | SEG_Driver_DP_4,SEG_Driver_FLASH_SLOW);
+			  countUpStopuhr();
+			  osDelay(100);
+		  }
+		  timerIsRunning = 1;
+		  SEG_Driver_Write(timer, SEG_Driver_DP_2 | SEG_Driver_DP_4,0);
+		  osDelay(100);
+		  countUpStopuhr();
+		  countDownTimer();
+		  switchMode();
 	  }
-
     osDelay(100);
   }
-  /* USER CODE END 5 */
 }
+
+void beep(int time){
+	HAL_GPIO_TogglePin(OUT_Buzzer_GPIO_Port, OUT_Buzzer_Pin);
+	osDelay(time);
+	HAL_GPIO_TogglePin(OUT_Buzzer_GPIO_Port, OUT_Buzzer_Pin);
+}
+
+void countDownTimer(){
+	if(timer == 0 && timerIsRunning == 1){
+	  timerStatus = 10;
+	  timerIsRunning = 0;
+	  beep(3000);
+	}
+	if(timerIsRunning == 1){
+		if(timer % 1000 == 0){
+			  timer -= 400;
+		}
+		else{
+			timer--;
+		}
+	}
+}
+
+void countUpStopuhr(){
+	 if(stopuhrIsRuning == 1){
+		  if((stopuhr + 400) % 1000 == 0){
+			  stopuhr += 400;
+		  }
+		  else{
+			  stopuhr++;
+		  }
+	  }
+}
+
+void stopuhrRunning(){
+	if(Taster_Get(TASTER_2) && mode == 0){
+		beep(100);
+		stopuhrIsRuning = 0;
+		LED_Set(LED_3, 0);
+	}
+	if(Taster_Get(TASTER_3) && mode == 0){
+	  switchMode();
+	  if( mode != 1 && meanTime == 0){
+		  beep(100);
+		  meanTime = stopuhr;
+	  }
+	  else{
+		  beep(100);
+		  meanTime = 0;
+	  }
+   }
+   osDelay(100);
+   countUpStopuhr();
+   countDownTimer();
+   if(meanTime == 0 && mode == 0){
+	   SEG_Driver_Write(stopuhr, SEG_Driver_DP_2 | SEG_Driver_DP_4,0);
+   }
+   else if(mode == 0){
+	   SEG_Driver_Write(meanTime, SEG_Driver_DP_2 | SEG_Driver_DP_4, SEG_Driver_FLASH_SLOW);
+   }
+}
+
+void switchMode(){
+	while(Taster_Get(TASTER_3)){
+		  taster3Counter++;
+		  if(taster3Counter > 10){
+			  if(mode == 0){
+				  mode = 1;
+				  SEG_Driver_Write(timer, SEG_Driver_DP_2 | SEG_Driver_DP_4, SEG_Driver_FLASH_SLOW);
+			  }
+			  else{
+				  mode = 0;
+				  SEG_Driver_Write(stopuhr, SEG_Driver_DP_2 | SEG_Driver_DP_4, 0);
+			  }
+			  taster3Counter = 0;
+		  }
+		  osDelay(100);
+	  }
+}
+
+/* USER CODE END 5 */
 
 /* USER CODE BEGIN Header_Taster_Treiber_Task */
 /**
